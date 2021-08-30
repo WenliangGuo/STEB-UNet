@@ -153,8 +153,8 @@ if __name__ == '__main__':
 
     net.to(device=device)
     net=torch.nn.DataParallel(net)
-    # faster convolutions, but more memory
-    # cudnn.benchmark = True
+    #faster convolutions, but more memory
+    #cudnn.benchmark = True
 
     try:
         train_net(net=net,
