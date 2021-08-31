@@ -1,7 +1,7 @@
 import torch.nn.functional as F
 import math
 from .transunet_parts import *
-from .segvit import SegViT
+from .segvit import Encoder, SegViT, Transformer
 
 class TransUNet(nn.Module):
     def __init__(self, in_channels, out_channels, bilinear=True):
@@ -10,35 +10,43 @@ class TransUNet(nn.Module):
         self.out_channels = out_channels
         self.bilinear = bilinear
 
-        self.transformer1 = SegViT(
+        self.encoder = Encoder(
             image_size = 512,
             patch_size = 2,
+            channels = 3
+        )#dim: 512*512*3 -> 256*256*3
+
+        self.transformer1 = Transformer(
             dim = 64,
-            depth = 2,
-            heads = 4,
+            depth = 6,
+            heads = 16,
             mlp_dim = 128, 
-        ) #dim: 512*512*3 -> 128*128*64
-        self.sequp1 = SeqUpsample(in_channels = 64, out_channels = 64, scale_factor=2) #dim: 128*128*128-> 256*256*64
+            dim_head = 64
+        ) #dim: 256*256*3 -> 256*256*64
 
-        self.transformer2 = SegViT(
-            image_size = 256,
-            patch_size = 4,
+        self.seqdown1 = Down(in_channels= 64, out_channels= 64)
+        #dim: 256*256*64 -> 128*128*64
+
+        self.transformer2 = Transformer(
             dim = 128,
-            depth = 2,
-            heads = 3,
+            depth = 6,
+            heads = 16,
             mlp_dim = 128, 
-        ) #dim: 512*512*3 -> 64*64*128
-        self.sequp2 = SeqUpsample(in_channels = 128, out_channels = 128, scale_factor=2) #dim: 64*64*256-> 128*128*128
+            dim_head = 64
+        ) #dim: 128*128*64 -> 128*128*128
 
-        self.transformer3 = SegViT(
-            image_size = 256,
-            patch_size = 8,
+        self.seqdown2 = Down(in_channels= 128, out_channels= 128)
+        #dim: 128*128*128 -> 64*64*128
+
+        self.transformer3 = Transformer(
             dim = 256,
-            depth = 2,
-            heads = 4,
-            mlp_dim = 64, 
-        ) #dim: 512*512*3 -> 32*32*256
-        self.sequp3 = SeqUpsample(in_channels = 256, out_channels = 256, scale_factor=2) #dim: 32*32*512-> 64*64*256
+            depth = 6,
+            heads = 16,
+            mlp_dim = 128, 
+            dim_head = 64
+        ) #dim: 128*128*128 -> 128*128*256
+        self.seqdown3 = Down(in_channels= 256, out_channels= 256)
+        #dim: 128*128*256 -> 64*64*256
 
         self.inc = DoubleConv(in_channels, 64)
         
@@ -62,13 +70,18 @@ class TransUNet(nn.Module):
         self.outc = OutConv(64, out_channels)
     
     def forward(self, x):
-        seq1 =self.transformer1(x)
+
+        f_in = self.encoder(x)
+
+        seq1 =self.transformer1(f_in)
         f1 = seq1.view(seq1.shape[0],int(math.sqrt(seq1.shape[1])),int(math.sqrt(seq1.shape[1])),seq1.shape[2])
         print("f1生成完毕")
-        seq2 =self.transformer2(x)
+
+        seq2 =self.transformer2(f1)
         f2 = seq1.view(seq2.shape[0],int(math.sqrt(seq2.shape[1])),int(math.sqrt(seq2.shape[1])),seq2.shape[2])
         print("f2生成完毕")
-        seq3 =self.transformer3(x)
+
+        seq3 =self.transformer3(f2)
         f3 = seq1.view(seq3.shape[0],int(math.sqrt(seq3.shape[1])),int(math.sqrt(seq3.shape[1])),seq3.shape[2])
         print("f3生成完毕")
 
