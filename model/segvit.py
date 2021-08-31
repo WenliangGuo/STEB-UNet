@@ -78,8 +78,8 @@ class Transformer(nn.Module):
             x = ff(x) + x
         return x
 
-class Encoder(nn.module):
-    def __init__(self, *, image_size, patch_size, pool = 'mean', channels = 3, dropout = 0.1, emb_dropout = 0.1):
+class Encoder(nn.Module):
+    def __init__(self, *, image_size, patch_size, dim, pool = 'mean', channels = 3, dropout = 0.1, emb_dropout = 0.1):
         super().__init__()
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)

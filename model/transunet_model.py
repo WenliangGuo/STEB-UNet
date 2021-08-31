@@ -11,43 +11,41 @@ class TransUNet(nn.Module):
         self.bilinear = bilinear
 
         self.encoder = Encoder(
-            image_size = 512,
+            image_size = 256,
             patch_size = 2,
-            channels = 3
-        )#dim: 512*512*3 -> 256*256*3
+            channels = 3,
+            dim = 64
+        )
 
         self.transformer1 = Transformer(
             dim = 64,
-            depth = 6,
-            heads = 16,
+            depth = 2,
+            heads = 8,
             mlp_dim = 128, 
             dim_head = 64
-        ) #dim: 256*256*3 -> 256*256*64
+        ) 
 
         self.seqdown1 = Down(in_channels= 64, out_channels= 64)
-        #dim: 256*256*64 -> 128*128*64
 
         self.transformer2 = Transformer(
             dim = 128,
-            depth = 6,
-            heads = 16,
+            depth = 2,
+            heads = 8,
             mlp_dim = 128, 
             dim_head = 64
-        ) #dim: 128*128*64 -> 128*128*128
+        ) 
 
         self.seqdown2 = Down(in_channels= 128, out_channels= 128)
-        #dim: 128*128*128 -> 64*64*128
 
         self.transformer3 = Transformer(
             dim = 256,
-            depth = 6,
-            heads = 16,
+            depth = 2,
+            heads = 8,
             mlp_dim = 128, 
             dim_head = 64
-        ) #dim: 128*128*128 -> 128*128*256
+        )
         self.seqdown3 = Down(in_channels= 256, out_channels= 256)
-        #dim: 128*128*256 -> 64*64*256
-
+       
         self.inc = DoubleConv(in_channels, 64)
         
         self.pool1 = nn.MaxPool2d(2)
