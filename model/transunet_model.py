@@ -25,7 +25,7 @@ class TransUNet(nn.Module):
             dim_head = 64
         ) 
 
-        self.seqdown1 = Down(in_channels= 64, out_channels= 64)
+        self.seqdown1 = Down(in_channels= 64, out_channels= 128)
 
         self.transformer2 = Transformer(
             dim = 128,
@@ -35,7 +35,7 @@ class TransUNet(nn.Module):
             dim_head = 64
         ) 
 
-        self.seqdown2 = Down(in_channels= 128, out_channels= 128)
+        self.seqdown2 = Down(in_channels= 128, out_channels= 256)
 
         self.transformer3 = Transformer(
             dim = 256,
@@ -44,7 +44,7 @@ class TransUNet(nn.Module):
             mlp_dim = 128, 
             dim_head = 64
         )
-        self.seqdown3 = Down(in_channels= 256, out_channels= 256)
+        self.seqdown3 = Down(in_channels= 256, out_channels= 512)
        
         self.inc = DoubleConv(in_channels, 64)
         
@@ -72,14 +72,19 @@ class TransUNet(nn.Module):
         f_in = self.encoder(x)
 
         seq1 =self.transformer1(f_in)
+        print(seq1.size())
+        seq1 = self.seqdown1(seq1)
+        print(seq1.size())
         f1 = seq1.view(seq1.shape[0],int(math.sqrt(seq1.shape[1])),int(math.sqrt(seq1.shape[1])),seq1.shape[2])
         print("f1生成完毕")
 
-        seq2 =self.transformer2(f1)
+        seq2 =self.transformer2(seq1)
+        seq2 = self.seqdown2(seq2)
         f2 = seq1.view(seq2.shape[0],int(math.sqrt(seq2.shape[1])),int(math.sqrt(seq2.shape[1])),seq2.shape[2])
         print("f2生成完毕")
 
-        seq3 =self.transformer3(f2)
+        seq3 =self.transformer3(seq2)
+        seq3 = self.seqdown3(seq3)
         f3 = seq1.view(seq3.shape[0],int(math.sqrt(seq3.shape[1])),int(math.sqrt(seq3.shape[1])),seq3.shape[2])
         print("f3生成完毕")
 
