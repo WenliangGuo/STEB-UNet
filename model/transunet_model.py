@@ -11,12 +11,11 @@ class TransUNet(nn.Module):
         self.bilinear = bilinear
 
         self.encoder = Encoder(
-            image_size = 256,
+            dim = 64,
+            image_size = 512,
             patch_size = 2,
-            channels = 3,
-            dim = 64
+            channels = 3
         )
-
         self.transformer1 = Transformer(
             dim = 64,
             depth = 2,
@@ -24,7 +23,6 @@ class TransUNet(nn.Module):
             mlp_dim = 128, 
             dim_head = 64
         ) 
-
         self.seqdown1 = Down(in_channels= 64, out_channels= 128)
 
         self.transformer2 = Transformer(
@@ -33,9 +31,8 @@ class TransUNet(nn.Module):
             heads = 8,
             mlp_dim = 128, 
             dim_head = 64
-        ) 
-
-        self.seqdown2 = Down(in_channels= 128, out_channels= 256)
+        )
+        self.seqdown2 = Down(in_channels= 128, out_channels= 128)
 
         self.transformer3 = Transformer(
             dim = 256,
@@ -43,9 +40,9 @@ class TransUNet(nn.Module):
             heads = 8,
             mlp_dim = 128, 
             dim_head = 64
-        )
-        self.seqdown3 = Down(in_channels= 256, out_channels= 512)
-       
+        ) 
+        self.seqdown3 = Down(in_channels= 256, out_channels= 256)
+
         self.inc = DoubleConv(in_channels, 64)
         
         self.pool1 = nn.MaxPool2d(2)
@@ -69,31 +66,27 @@ class TransUNet(nn.Module):
     
     def forward(self, x):
 
-        f_in = self.encoder(x)
+        seq0 = self.encoder(x)
+        #f_in = seq0.view(seq0.shape[0],int(math.sqrt(seq0.shape[1])),int(math.sqrt(seq0.shape[1])),seq0.shape[2])
 
-        seq1 =self.transformer1(f_in)
-        print(seq1.size())
-        seq1 = self.seqdown1(seq1)
-        print(seq1.size())
-        f1 = seq1.view(seq1.shape[0],int(math.sqrt(seq1.shape[1])),int(math.sqrt(seq1.shape[1])),seq1.shape[2])
+        seq1 =self.transformer1(seq0)
+        #f1 = seq1.view(seq1.shape[0],int(math.sqrt(seq1.shape[1])),int(math.sqrt(seq1.shape[1])),seq1.shape[2])
         print("f1生成完毕")
 
         seq2 =self.transformer2(seq1)
-        seq2 = self.seqdown2(seq2)
-        f2 = seq1.view(seq2.shape[0],int(math.sqrt(seq2.shape[1])),int(math.sqrt(seq2.shape[1])),seq2.shape[2])
+        #f2 = seq1.view(seq2.shape[0],int(math.sqrt(seq2.shape[1])),int(math.sqrt(seq2.shape[1])),seq2.shape[2])
         print("f2生成完毕")
 
         seq3 =self.transformer3(seq2)
-        seq3 = self.seqdown3(seq3)
-        f3 = seq1.view(seq3.shape[0],int(math.sqrt(seq3.shape[1])),int(math.sqrt(seq3.shape[1])),seq3.shape[2])
+        #f3 = seq1.view(seq3.shape[0],int(math.sqrt(seq3.shape[1])),int(math.sqrt(seq3.shape[1])),seq3.shape[2])
         print("f3生成完毕")
 
         x1 = self.inc(x)
-        x2 = self.down1(torch.cat(f1,x1))
+        x2 = self.down1(torch.cat(seq1,x1))
         print("Down1生成完毕")
-        x3 = self.down2(torch.cat(f2,x2))
+        x3 = self.down2(torch.cat(seq2,x2))
         print("Down2生成完毕")
-        x4 = self.down3(torch.cat(f3,x3))
+        x4 = self.down3(torch.cat(seq3,x3))
         print("Down3生成完毕")
         x5 = self.down4(x4)
         print("Down4生成完毕")

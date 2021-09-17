@@ -17,8 +17,8 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.dataset import BasicDataset
 from torch.utils.data import DataLoader, random_split
 
-dir_img = '/mnt/The cropped image tiles and raster labels/train/image/'
-dir_mask = '/mnt/The cropped image tiles and raster labels/train/label/'
+dir_img = 'The cropped image tiles and raster labels/train/image/'
+dir_mask = 'The cropped image tiles and raster labels/train/label/'
 dir_checkpoint = 'checkpoints/'
 
 
