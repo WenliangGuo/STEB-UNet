@@ -12,14 +12,14 @@ class TransUNet(nn.Module):
 
         self.encoder = Encoder(
             dim = 64,
-            image_size = 512,
+            image_size = 256,
             patch_size = 2,
             channels = 3
         )
         self.transformer1 = Transformer(
             dim = 64,
-            depth = 2,
-            heads = 8,
+            depth = 1,
+            heads = 4,
             mlp_dim = 128, 
             dim_head = 64
         ) 
@@ -27,32 +27,29 @@ class TransUNet(nn.Module):
 
         self.transformer2 = Transformer(
             dim = 128,
-            depth = 2,
-            heads = 8,
+            depth = 1,
+            heads = 4,
             mlp_dim = 128, 
             dim_head = 64
         )
-        self.seqdown2 = Down(in_channels= 128, out_channels= 128)
+        self.seqdown2 = Down(in_channels= 128, out_channels= 256)
 
         self.transformer3 = Transformer(
             dim = 256,
-            depth = 2,
-            heads = 8,
+            depth = 1,
+            heads = 4,
             mlp_dim = 128, 
             dim_head = 64
         ) 
-        self.seqdown3 = Down(in_channels= 256, out_channels= 256)
+        self.seqdown3 = Down(in_channels= 256, out_channels= 512)
 
-        self.inc = DoubleConv(in_channels, 64)
+        self.inc = Down(in_channels, 64)
         
-        self.pool1 = nn.MaxPool2d(2)
-        self.down1 = DoubleConv(128, 128)
+        self.down1 = Down(128, 128)
         
-        self.pool2 = nn.MaxPool2d(2) 
-        self.down2 = DoubleConv(256, 256)
+        self.down2 = Down(256, 256)
         
-        self.pool2 = nn.MaxPool2d(2)
-        self.down3 = DoubleConv(512, 512)
+        self.down3 = Down(512, 512)
 
         factor = 2 if bilinear else 1
         
@@ -67,37 +64,45 @@ class TransUNet(nn.Module):
     def forward(self, x):
 
         seq0 = self.encoder(x)
-        #f_in = seq0.view(seq0.shape[0],int(math.sqrt(seq0.shape[1])),int(math.sqrt(seq0.shape[1])),seq0.shape[2])
+        print("f_in: {}".format(x.shape))
 
         seq1 =self.transformer1(seq0)
-        #f1 = seq1.view(seq1.shape[0],int(math.sqrt(seq1.shape[1])),int(math.sqrt(seq1.shape[1])),seq1.shape[2])
-        print("f1生成完毕")
-
-        seq2 =self.transformer2(seq1)
-        #f2 = seq1.view(seq2.shape[0],int(math.sqrt(seq2.shape[1])),int(math.sqrt(seq2.shape[1])),seq2.shape[2])
-        print("f2生成完毕")
-
-        seq3 =self.transformer3(seq2)
-        #f3 = seq1.view(seq3.shape[0],int(math.sqrt(seq3.shape[1])),int(math.sqrt(seq3.shape[1])),seq3.shape[2])
-        print("f3生成完毕")
-
+        f1 = seq1.view(seq1.shape[0], seq1.shape[2], int(math.sqrt(seq1.shape[1])),int(math.sqrt(seq1.shape[1])))
+        print("f1: {}".format(f1.shape))
+        
+        f2 = self.seqdown1(f1)
+        seq2 =self.transformer2(f2.view(f2.shape[0],f2.shape[2]**2,f2.shape[1]))
+        f2 = seq2.view(seq2.shape[0], seq2.shape[2], int(math.sqrt(seq2.shape[1])),int(math.sqrt(seq2.shape[1])))
+        print("f2: {}".format(f2.shape))
+        
+        f3 = self.seqdown2(f2)
+        seq3 =self.transformer3(f3.view(f3.shape[0],f3.shape[2]**2,f3.shape[1]))
+        f3 = seq3.view(seq3.shape[0], seq3.shape[2], int(math.sqrt(seq3.shape[1])),int(math.sqrt(seq3.shape[1]))) 
+        print("f3: {}".format(f3.shape))
+        
         x1 = self.inc(x)
-        x2 = self.down1(torch.cat(seq1,x1))
-        print("Down1生成完毕")
-        x3 = self.down2(torch.cat(seq2,x2))
-        print("Down2生成完毕")
-        x4 = self.down3(torch.cat(seq3,x3))
-        print("Down3生成完毕")
+        print("x1: {}".format(x1.shape))
+
+        x2 = self.down1(torch.cat([f1,x1], dim = 1))
+        print("x2: {}".format(x2.shape))
+        
+        x3 = self.down2(torch.cat([f2,x2], dim = 1))
+        print("x3: {}".format(x3.shape))
+        
+        x4 = self.down3(torch.cat([f3,x3], dim = 1))
+        print("x4: {}".format(x4.shape))
+        
         x5 = self.down4(x4)
-        print("Down4生成完毕")
+        print("x5: {}".format(x5.shape))
+        
         x = self.up1(x5, x4)
-        print("up1生成完毕")
+        
         x = self.up2(x, x3)
-        print("up2生成完毕")
+        
         x = self.up3(x, x2)
-        print("up3生成完毕")
+    
         x = self.up4(x, x1)
-        print("up4生成完毕")
+        
         logits = self.outc(x)
-        print("输出生成完毕")
+        
         return logits

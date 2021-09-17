@@ -54,6 +54,7 @@ def train_net(net,
 
     optimizer = optim.RMSprop(net.parameters(), lr=lr, weight_decay=1e-8, momentum=0.9)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=2)
+    criterion = nn.CrossEntropyLoss()
 
     for epoch in range(epochs):
         net.train()
@@ -69,6 +70,7 @@ def train_net(net,
                 true_masks = true_masks.to(device=device, dtype=mask_type)
 
                 masks_pred = net(imgs)
+                
                 loss = criterion(masks_pred, true_masks)
                 epoch_loss += loss.item()
                 writer.add_scalar('Loss/train', loss.item(), global_step)
@@ -117,7 +119,7 @@ def get_args():
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-e', '--epochs', metavar='E', type=int, default=5,
                         help='Number of epochs', dest='epochs')
-    parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=16,
+    parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1,
                         help='Batch size', dest='batchsize')
     parser.add_argument('-l', '--learning-rate', metavar='LR', type=float, nargs='?', default=0.0001,
                         help='Learning rate', dest='lr')
@@ -153,8 +155,8 @@ if __name__ == '__main__':
 
     net.to(device=device)
     net=torch.nn.DataParallel(net)
-    #faster convolutions, but more memory
-    #cudnn.benchmark = True
+    # faster convolutions, but more memory
+    # cudnn.benchmark = True
 
     try:
         train_net(net=net,
