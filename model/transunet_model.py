@@ -67,6 +67,7 @@ class TransUNet(nn.Module):
         print("f_in: {}".format(x.shape))
 
         seq1 =self.transformer1(seq0)
+        print(seq1.shape)
         f1 = seq1.view(seq1.shape[0], seq1.shape[2], int(math.sqrt(seq1.shape[1])),int(math.sqrt(seq1.shape[1])))
         print("f1: {}".format(f1.shape))
         

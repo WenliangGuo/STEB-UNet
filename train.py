@@ -66,12 +66,12 @@ def train_net(net,
                 true_masks = batch['mask']
 
                 imgs = imgs.to(device=device, dtype=torch.float32)
-                mask_type = torch.float32
+                mask_type = torch.long
                 true_masks = true_masks.to(device=device, dtype=mask_type)
 
                 masks_pred = net(imgs)
-                
-                loss = criterion(masks_pred, true_masks)
+
+                loss = criterion(masks_pred, torch.squeeze(true_masks).long())
                 epoch_loss += loss.item()
                 writer.add_scalar('Loss/train', loss.item(), global_step)
 

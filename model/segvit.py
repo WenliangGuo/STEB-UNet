@@ -79,7 +79,7 @@ class Transformer(nn.Module):
         return x
 
 class Encoder(nn.Module):
-    def __init__(self, *, image_size, patch_size, dim, pool = 'mean', channels = 3, dropout = 0.1, emb_dropout = 0.1):
+    def __init__(self, *, image_size, patch_size, num_classes = '256', dim, pool = 'mean', channels = 3, dropout = 0.1, emb_dropout = 0.1):
         super().__init__()
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
@@ -95,9 +95,9 @@ class Encoder(nn.Module):
             nn.Linear(patch_dim, dim),
         )
 
-        #self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
-        #self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
-        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
+        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
+        self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
+        #self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
 
         self.dropout = nn.Dropout(emb_dropout)
 
@@ -108,11 +108,11 @@ class Encoder(nn.Module):
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
 
-        #cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
-        #x = torch.cat((cls_tokens, x), dim=1)
-        #x += self.pos_embedding[:, :(n + 1)]
+        cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
+        x = torch.cat((cls_tokens, x), dim=1)
+        x += self.pos_embedding[:, :(n + 1)]
 
-        x += self.pos_embedding[:, :n]
+        #x += self.pos_embedding[:, :n]
         x = self.dropout(x)
 
 
@@ -123,7 +123,7 @@ class Encoder(nn.Module):
 
 
 class SegViT(nn.Module):
-    def __init__(self, *, image_size, patch_size, num_classes = '1000', dim, depth, heads, mlp_dim, pool = 'mean', channels = 3, dim_head = 64, dropout = 0.1, emb_dropout = 0.1):
+    def __init__(self, *, image_size, patch_size, num_classes = '256', dim, depth, heads, mlp_dim, pool = 'mean', channels = 3, dim_head = 64, dropout = 0.1, emb_dropout = 0.1):
         super().__init__()
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
@@ -139,9 +139,9 @@ class SegViT(nn.Module):
             nn.Linear(patch_dim, dim),
         )
 
-        #self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
-        #self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
-        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
+        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
+        self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
+        #self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
 
         self.dropout = nn.Dropout(emb_dropout)
 

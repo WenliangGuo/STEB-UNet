@@ -78,7 +78,8 @@ class OutConv(nn.Module):
     def forward(self, x):
         y = self.up(x)
         y = self.conv(y)
-        return 
+
+        return y
 
 class SeqUpsample(nn.Module):
     def __init__(self, in_channels, out_channels, scale_factor):
