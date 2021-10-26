@@ -1,4 +1,4 @@
-import torch.nn.functional as F
+from torch.nn import functional as F
 import math
 from .transunet_parts import *
 from .segvit import Encoder, SegViT, Transformer
@@ -64,37 +64,37 @@ class TransUNet(nn.Module):
     def forward(self, x):
 
         seq0 = self.encoder(x)
-        print("f_in: {}".format(x.shape))
+        #print("f_in: {}".format(x.shape))
 
         seq1 =self.transformer1(seq0)
-        print(seq1.shape)
+        #print("seq1:{}".format(seq1.shape))
         f1 = seq1.view(seq1.shape[0], seq1.shape[2], int(math.sqrt(seq1.shape[1])),int(math.sqrt(seq1.shape[1])))
-        print("f1: {}".format(f1.shape))
+        #print("f1: {}".format(f1.shape))
         
         f2 = self.seqdown1(f1)
         seq2 =self.transformer2(f2.view(f2.shape[0],f2.shape[2]**2,f2.shape[1]))
         f2 = seq2.view(seq2.shape[0], seq2.shape[2], int(math.sqrt(seq2.shape[1])),int(math.sqrt(seq2.shape[1])))
-        print("f2: {}".format(f2.shape))
+        #print("f2: {}".format(f2.shape))
         
         f3 = self.seqdown2(f2)
         seq3 =self.transformer3(f3.view(f3.shape[0],f3.shape[2]**2,f3.shape[1]))
         f3 = seq3.view(seq3.shape[0], seq3.shape[2], int(math.sqrt(seq3.shape[1])),int(math.sqrt(seq3.shape[1]))) 
-        print("f3: {}".format(f3.shape))
+        #print("f3: {}".format(f3.shape))
         
         x1 = self.inc(x)
-        print("x1: {}".format(x1.shape))
+        #print("x1: {}".format(x1.shape))
 
         x2 = self.down1(torch.cat([f1,x1], dim = 1))
-        print("x2: {}".format(x2.shape))
+       # print("x2: {}".format(x2.shape))
         
         x3 = self.down2(torch.cat([f2,x2], dim = 1))
-        print("x3: {}".format(x3.shape))
+       # print("x3: {}".format(x3.shape))
         
         x4 = self.down3(torch.cat([f3,x3], dim = 1))
-        print("x4: {}".format(x4.shape))
+        #print("x4: {}".format(x4.shape))
         
         x5 = self.down4(x4)
-        print("x5: {}".format(x5.shape))
+        #print("x5: {}".format(x5.shape))
         
         x = self.up1(x5, x4)
         
@@ -105,5 +105,7 @@ class TransUNet(nn.Module):
         x = self.up4(x, x1)
         
         logits = self.outc(x)
+
+        out = F.Softmax(logits)
         
-        return logits
+        return out

@@ -95,30 +95,17 @@ class Encoder(nn.Module):
             nn.Linear(patch_dim, dim),
         )
 
-        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
-        self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
-        #self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
+        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
 
         self.dropout = nn.Dropout(emb_dropout)
-
-        #self.pool = pool
-        #self.to_latent = nn.Identity()
 
     def forward(self, img):
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
 
-        cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
-        x = torch.cat((cls_tokens, x), dim=1)
-        x += self.pos_embedding[:, :(n + 1)]
-
-        #x += self.pos_embedding[:, :n]
+        x += self.pos_embedding[:, :n]
         x = self.dropout(x)
 
-
-        #x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
-
-        #x = self.to_latent(x)
         return (x)
 
 

@@ -1,7 +1,7 @@
 import argparse
 import logging
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
 import sys
 
 import numpy as np
@@ -17,8 +17,8 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.dataset import BasicDataset
 from torch.utils.data import DataLoader, random_split
 
-dir_img = '/mnt/The cropped image tiles and raster labels/train/image/'
-dir_mask = '/mnt/The cropped image tiles and raster labels/train/label/'
+dir_img = '../The cropped image tiles and raster labels/train/image/'
+dir_mask = '../The cropped image tiles and raster labels/train/label/'
 dir_checkpoint = 'checkpoints/'
 
 
@@ -54,7 +54,8 @@ def train_net(net,
 
     optimizer = optim.RMSprop(net.parameters(), lr=lr, weight_decay=1e-8, momentum=0.9)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=2)
-    criterion = nn.CrossEntropyLoss()
+    #criterion = nn.CrossEntropyLoss()
+    criterion = nn.BCELoss(size_average=True)
 
     for epoch in range(epochs):
         net.train()
@@ -66,12 +67,11 @@ def train_net(net,
                 true_masks = batch['mask']
 
                 imgs = imgs.to(device=device, dtype=torch.float32)
-                mask_type = torch.long
-                true_masks = true_masks.to(device=device, dtype=mask_type)
+                true_masks = true_masks.to(device=device, dtype=torch.float32)
 
                 masks_pred = net(imgs)
 
-                loss = criterion(masks_pred, torch.squeeze(true_masks).long())
+                loss = criterion(masks_pred, true_masks)
                 epoch_loss += loss.item()
                 writer.add_scalar('Loss/train', loss.item(), global_step)
 
