@@ -1,7 +1,7 @@
 from torch.nn import functional as F
 import math
 from .transunet_parts import *
-from .segvit import Encoder, SegViT, Transformer
+from .segvit import Encoder, Transformer
 
 class TransUNet(nn.Module):
     def __init__(self, in_channels, out_channels, bilinear=True):
@@ -106,6 +106,6 @@ class TransUNet(nn.Module):
         
         logits = self.outc(x)
 
-        out = F.Softmax(logits)
+        out = F.sigmoid(logits)
         
         return out

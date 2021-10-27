@@ -1,175 +1,178 @@
-import argparse
-import logging
+import torch
+import torchvision
+from torch.autograd import Variable
+import torch.nn as nn
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
-import sys
+import torch.nn.functional as F
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms, utils
+import torch.optim as optim
+import torchvision.transforms as standard_transforms
 
 import numpy as np
-import torch
-import torch.nn as nn
-from torch import optim
-from tqdm import tqdm
+import glob
 
-from eval import eval_net
+from data_loader import Rescale
+from data_loader import RescaleT
+from data_loader import RandomCrop
+from data_loader import ToTensor
+from data_loader import ToTensorLab
+from data_loader import SalObjDataset
+
 from model import TransUNet
 
-from torch.utils.tensorboard import SummaryWriter
-from utils.dataset import BasicDataset
-from torch.utils.data import DataLoader, random_split
+import matplotlib
+matplotlib.use('AGG')
+import matplotlib.pyplot as plt
 
-dir_img = '../The cropped image tiles and raster labels/train/image/'
-dir_mask = '../The cropped image tiles and raster labels/train/label/'
-dir_checkpoint = 'checkpoints/'
+import eval
+from collections import OrderedDict
+
+# ------- 1. define loss function --------
+
+bce_loss = nn.BCELoss(size_average=True)
+
+# ------- 2. set the directory of training dataset --------
+
+model_name = 'TransUNet' 
+
+data_dir = os.path.join(os.getcwd(), '../The cropped image tiles and raster labels/train' + os.sep)
+tra_image_dir = os.path.join('image' + os.sep)
+tra_label_dir = os.path.join('label' + os.sep)
+
+image_ext = '.png'
+label_ext = '.png'
+
+model_dir = os.path.join(os.getcwd(), 'saved_models', model_name + os.sep)
+
+epoch_num = 500
+batch_size_train = 4
+batch_size_val = 1
+train_num = 0
+val_num = 0
+
+ite_num = 0
+running_loss = 0.0
+running_tar_loss = 0.0
+ite_num4val = 0
+save_epoch = 5
+Loss_list = []
+
+tra_img_name_list = glob.glob(data_dir + tra_image_dir + '*' + image_ext)
+
+tra_lbl_name_list = []
+for img_path in tra_img_name_list:
+	img_name = img_path.split(os.sep)[-1]
+
+	aaa = img_name.split(".")
+	bbb = aaa[0:-1]
+	imidx = bbb[0]
+	for i in range(1,len(bbb)):
+		imidx = imidx + "." + bbb[i]
+
+	tra_lbl_name_list.append(data_dir + tra_label_dir + imidx + label_ext)
+
+print("---")
+print("train images: ", len(tra_img_name_list))
+print("train labels: ", len(tra_lbl_name_list))
+print("---")
+
+train_num = len(tra_img_name_list)
+
+salobj_dataset = SalObjDataset(
+    img_name_list=tra_img_name_list,
+    lbl_name_list=tra_lbl_name_list,
+    transform=transforms.Compose([
+        RescaleT(320),
+        RandomCrop(256),
+        ToTensorLab(flag=0)]))
+salobj_dataloader = DataLoader(salobj_dataset, batch_size=batch_size_train, shuffle=True, num_workers=1)
+
+# ------- 3. define model --------
+# define the net
+net = TransUNet(in_channels=3, out_channels = 1, bilinear=True)
+
+model_list = os.listdir(model_dir)
+
+if len(model_list) != 0: #load the latest model
+    model_list.sort(key=lambda x:os.path.getmtime(os.path.join(model_dir,x)))
+    latest_file = model_list[-1]
+    print("Previous training is interrupted. Begin training from {}.".format(latest_file))
+    # original saved file with DataParallel
+    state_dict = torch.load(os.path.join(model_dir,latest_file))
+    # create new OrderedDict that does not contain `module.`
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:] # remove `module.`
+        new_state_dict[name] = v
+    # load params
+    net.load_state_dict(new_state_dict)
+
+net = nn.DataParallel(net)
+
+if torch.cuda.is_available():
+    net.cuda()
+
+# ------- 4. define optimizer --------
+print("---define optimizer...")
+optimizer = optim.Adam(net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
+
+# ------- 5. training process --------
+print("---start training...")
+
+for epoch in range(0, epoch_num):
+    net.train()
+
+    for i, data in enumerate(salobj_dataloader):
+        ite_num = ite_num + 1
+        ite_num4val = ite_num4val + 1
+
+        inputs, labels = data['image'], data['label']
+
+        inputs = inputs.type(torch.FloatTensor)
+        labels = labels.type(torch.FloatTensor)
+
+        # wrap them in Variable
+        if torch.cuda.is_available():
+            inputs_v, labels_v = Variable(inputs.cuda(), requires_grad=False), Variable(labels.cuda(),
+                                                                                        requires_grad=False)
+        else:
+            inputs_v, labels_v = Variable(inputs, requires_grad=False), Variable(labels, requires_grad=False)
+
+        # y zero the parameter gradients
+        optimizer.zero_grad()
+
+        # forward + backward + optimize
+        d= net(inputs_v)
+        loss = bce_loss(d, labels_v)
+
+        loss.backward()
+        optimizer.step()
+
+        # # print statistics
+        running_loss += loss.data
+
+        # del temporary outputs and loss
+        del d, loss
+
+        print("[epoch: %3d/%3d, batch: %5d/%5d, ite: %d] train loss: %3f" % (
+        epoch + 1, epoch_num, (i + 1) * batch_size_train, train_num, ite_num, running_loss / ite_num4val))
 
 
-def train_net(net,
-              device,
-              epochs=5,
-              batch_size=1,
-              lr=0.001,
-              val_percent=0.1,
-              save_cp=True,
-              img_scale=0.5):
+    if (epoch+1) % save_epoch== 0:
 
-    dataset = BasicDataset(dir_img, dir_mask, img_scale)
-    n_val = int(len(dataset) * val_percent)
-    n_train = len(dataset) - n_val
-    train, val = random_split(dataset, [n_train, n_val])
-    train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
-    val_loader = DataLoader(val, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True, drop_last=True)
+        torch.save(net.state_dict(), model_dir + model_name+"_bce_itr_%d_train_%3f.pth" % (ite_num, running_loss / ite_num4val))
+        Loss_list.append(running_loss / ite_num4val)
+        running_loss = 0.0
+        running_tar_loss = 0.0
+        net.train()  # resume train
+        ite_num4val = 0
 
-    writer = SummaryWriter(comment=f'LR_{lr}_BS_{batch_size}_SCALE_{img_scale}')
-    global_step = 0
-
-    logging.info(f'''Starting training:
-        Epochs:          {epochs}
-        Batch size:      {batch_size}
-        Learning rate:   {lr}
-        Training size:   {n_train}
-        Validation size: {n_val}
-        Checkpoints:     {save_cp}
-        Device:          {device.type}
-        Images scaling:  {img_scale}
-    ''')
-
-    optimizer = optim.RMSprop(net.parameters(), lr=lr, weight_decay=1e-8, momentum=0.9)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=2)
-    #criterion = nn.CrossEntropyLoss()
-    criterion = nn.BCELoss(size_average=True)
-
-    for epoch in range(epochs):
-        net.train()
-
-        epoch_loss = 0
-        with tqdm(total=n_train, desc=f'Epoch {epoch + 1}/{epochs}', unit='img') as pbar:
-            for batch in train_loader:
-                imgs = batch['image']
-                true_masks = batch['mask']
-
-                imgs = imgs.to(device=device, dtype=torch.float32)
-                true_masks = true_masks.to(device=device, dtype=torch.float32)
-
-                masks_pred = net(imgs)
-
-                loss = criterion(masks_pred, true_masks)
-                epoch_loss += loss.item()
-                writer.add_scalar('Loss/train', loss.item(), global_step)
-
-                pbar.set_postfix(**{'loss (batch)': loss.item()})
-
-                optimizer.zero_grad()
-                loss.backward()
-                nn.utils.clip_grad_value_(net.parameters(), 0.1)
-                optimizer.step()
-
-                pbar.update(imgs.shape[0])
-                global_step += 1
-                if global_step % (n_train // (10 * batch_size)) == 0:
-                    for tag, value in net.named_parameters():
-                        tag = tag.replace('.', '/')
-                        writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
-                        writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
-                    val_score = eval_net(net, val_loader, device)
-                    scheduler.step(val_score)
-                    writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
-
-                    logging.info('Validation Dice Coeff: {}'.format(val_score))
-                    writer.add_scalar('Dice/test', val_score, global_step)
-
-                    writer.add_images('images', imgs, global_step)
-
-                    writer.add_images('masks/true', true_masks, global_step)
-                    writer.add_images('masks/pred', torch.sigmoid(masks_pred) > 0.5, global_step)
-
-        if save_cp:
-            try:
-                os.mkdir(dir_checkpoint)
-                logging.info('Created checkpoint directory')
-            except OSError:
-                pass
-            torch.save(net.state_dict(),
-                       dir_checkpoint + f'CP_epoch{epoch + 1}.pth')
-            logging.info(f'Checkpoint {epoch + 1} saved !')
-
-    writer.close()
-
-
-def get_args():
-    parser = argparse.ArgumentParser(description='Train the UNet on images and target masks',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=5,
-                        help='Number of epochs', dest='epochs')
-    parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1,
-                        help='Batch size', dest='batchsize')
-    parser.add_argument('-l', '--learning-rate', metavar='LR', type=float, nargs='?', default=0.0001,
-                        help='Learning rate', dest='lr')
-    parser.add_argument('-f', '--load', dest='load', type=str, default=False,
-                        help='Load model from a .pth file')
-    parser.add_argument('-s', '--scale', dest='scale', type=float, default=0.5,
-                        help='Downscaling factor of the images')
-    parser.add_argument('-v', '--validation', dest='val', type=float, default=10.0,
-                        help='Percent of the data that is used as validation (0-100)')
-
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-    args = get_args()
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    logging.info(f'Using device {device}')
-
-    # Change here to adapt to your data
-    # n_channels=3 for RGB images
-    # n_classes is the number of probabilities you want to get per pixel
-    #   - For 1 class and background, use n_classes=1
-    #   - For 2 classes, use n_classes=1
-    #   - For N > 2 classes, use n_classes=N
-    net = TransUNet(in_channels=3, out_channels = 1, bilinear=True)
-
-    if args.load:
-        net.load_state_dict(
-            torch.load(args.load, map_location=device)
-        )
-        logging.info(f'Model loaded from {args.load}')
-
-    net.to(device=device)
-    net=torch.nn.DataParallel(net)
-    # faster convolutions, but more memory
-    # cudnn.benchmark = True
-
-    try:
-        train_net(net=net,
-                  epochs=args.epochs,
-                  batch_size=args.batchsize,
-                  lr=args.lr,
-                  device=device,
-                  img_scale=args.scale,
-                  val_percent=args.val / 100)
-    except KeyboardInterrupt:
-        torch.save(net.state_dict(), 'INTERRUPTED.pth')
-        logging.info('Saved interrupt')
-        try:
-            sys.exit(0)
-        except SystemExit:
-            os._exit(0)
+    x = range(0, len(Loss_list))
+    y = Loss_list
+    plt.plot(x, y, '.-')
+    plt.xlabel('Test loss vs. ite_num')
+    plt.ylabel('Test loss')
+    plt.savefig("loss/loss_{}.png".format(str(epoch+1)))

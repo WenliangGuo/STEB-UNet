@@ -1,2 +1,2 @@
-from .segvit import SegViT
+from .segvit import Encoder
 from .transunet_model import TransUNet

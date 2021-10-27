@@ -1,33 +1,26 @@
 import torch
 import torch.nn.functional as F
-from tqdm import tqdm
 
 from dice_loss import dice_coeff
 
 
-def eval_net(net, loader, device):
+def eval_net(net, dataset, gpu=False):
     """Evaluation without the densecrf with the dice coefficient"""
     net.eval()
-    mask_type = torch.float32 if net.n_classes == 1 else torch.long
-    n_val = len(loader)  # the number of batch
     tot = 0
+    for i, b in enumerate(dataset):
+        img = b[0]
+        true_mask = b[1]
 
-    with tqdm(total=n_val, desc='Validation round', unit='batch', leave=False) as pbar:
-        for batch in loader:
-            imgs, true_masks = batch['image'], batch['mask']
-            imgs = imgs.to(device=device, dtype=torch.float32)
-            true_masks = true_masks.to(device=device, dtype=mask_type)
+        img = torch.from_numpy(img).unsqueeze(0)
+        true_mask = torch.from_numpy(true_mask).unsqueeze(0)
 
-            with torch.no_grad():
-                mask_pred = net(imgs)
+        if gpu:
+            img = img.cuda()
+            true_mask = true_mask.cuda()
 
-            if net.n_classes > 1:
-                tot += F.cross_entropy(mask_pred, true_masks).item()
-            else:
-                pred = torch.sigmoid(mask_pred)
-                pred = (pred > 0.5).float()
-                tot += dice_coeff(pred, true_masks).item()
-            pbar.update()
+        mask_pred = net(img)[0]
+        mask_pred = (mask_pred > 0.5).float()
 
-    net.train()
-    return tot / n_val
+        tot += dice_coeff(mask_pred, true_mask).item()
+    return tot / (i + 1)
