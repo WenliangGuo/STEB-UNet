@@ -4,8 +4,8 @@ from model import TransUNet
 import torch 
 import matplotlib.pyplot as plt
 import numpy as np
-
-
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 def params_count(model):
     """
