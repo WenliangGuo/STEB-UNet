@@ -4,7 +4,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 import os
 import torch.nn.functional as F
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
@@ -21,7 +21,7 @@ from data_loader import ToTensor
 from data_loader import ToTensorLab
 from data_loader import SalObjDataset
 
-from model import TransUNet
+from model import Swin_TransUNet
 
 import matplotlib
 matplotlib.use('AGG')
@@ -76,9 +76,9 @@ bce_loss = nn.BCELoss(size_average=True)
 
 # ------- 2. set the directory of training dataset --------
 
-model_name = 'TransUNet' 
+model_name = 'Swin_TransUNet' 
 
-train_data = os.path.join(os.getcwd(), '../The cropped image tiles and raster labels/train' + os.sep)
+train_data = os.path.join(os.getcwd(), '../The cropped image tiles and raster labels/train_all' + os.sep)
 tra_image_dir = os.path.join('image' + os.sep)
 tra_label_dir = os.path.join('label' + os.sep)
 
@@ -91,9 +91,9 @@ label_ext = '.png'
 
 model_dir = os.path.join(os.getcwd(), 'saved_models', model_name + os.sep)
 
-epoch_num = 500
-batch_size_train = 4
-batch_size_val = 4
+epoch_num = 550
+batch_size_train = 16
+batch_size_val = 1
 train_num = 0
 val_num = 0
 
@@ -145,8 +145,8 @@ train_dataset = SalObjDataset(
     img_name_list=tra_img_name_list,
     lbl_name_list=tra_lbl_name_list,
     transform=transforms.Compose([
-        RescaleT(160),
-        RandomCrop(128),
+        RescaleT(320),
+        RandomCrop(256),
         ToTensorLab(flag=0)]))
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size_train, shuffle=True, num_workers=1)
 
@@ -154,13 +154,13 @@ valid_dataset = SalObjDataset(
     img_name_list=val_img_name_list,
     lbl_name_list=val_lbl_name_list,
     transform=transforms.Compose([
-        RescaleT(128),
+        RescaleT(256),
         ToTensorLab(flag=0)]))
 valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size_val, shuffle=False, num_workers=1)
 
 # ------- 3. define model --------
 # define the net
-net = TransUNet(in_channels=3, out_channels = 1, bilinear=True)
+net = Swin_TransUNet(in_channels=3, out_channels = 1)
 
 model_list = os.listdir(model_dir)
 
@@ -269,4 +269,4 @@ for epoch in range(0, epoch_num):
     plt.plot(x, y, '.-')
     plt.xlabel('Test loss vs. ite_num')
     plt.ylabel('Test loss')
-    plt.savefig("loss/loss_{}.png".format(str(epoch+1)))
+    plt.savefig("loss/Swin_TransUNet_loss.png".format(str(epoch+1)))

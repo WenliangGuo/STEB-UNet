@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 from skimage import io, transform
 import torch
 import torchvision
@@ -54,8 +54,8 @@ def main():
 
     # --------- 1. get image path and name ---------
     image_dir = "../The cropped image tiles and raster labels/test/image/"
-    prediction_dir = "WSU_results/transu/"
-    model_dir = "saved_models/TransUNet/TransUNet_bce_itr_592000_train_0.036762.pth"
+    prediction_dir = "../WSU_results/transu/"
+    model_dir = "saved_models/TransUNet/TransUNet_bce_itr_495_train_0.088352.pth"
     img_name_list = glob.glob(image_dir + os.sep + '*')
     print(img_name_list)
 
@@ -63,7 +63,7 @@ def main():
     #1. dataloader
     test_salobj_dataset = SalObjDataset(img_name_list = img_name_list,
                                         lbl_name_list = [],
-                                        transform=transforms.Compose([RescaleT(256),
+                                        transform=transforms.Compose([RescaleT(128),
                                                                       ToTensorLab(flag=0)])
                                         )
     test_salobj_dataloader = DataLoader(test_salobj_dataset,

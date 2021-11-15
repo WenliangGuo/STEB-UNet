@@ -12,33 +12,33 @@ class TransUNet(nn.Module):
 
         self.encoder = Encoder(
             dim = 64,
-            image_size = 256,
+            image_size = 128,
             patch_size = 2,
             channels = 3
         )
         self.transformer1 = Transformer(
             dim = 64,
-            depth = 1,
-            heads = 4,
-            mlp_dim = 128, 
+            depth = 6,
+            heads = 8,
+            mlp_dim = 512, 
             dim_head = 64
         ) 
         self.seqdown1 = Down(in_channels= 64, out_channels= 128)
 
         self.transformer2 = Transformer(
             dim = 128,
-            depth = 1,
-            heads = 4,
-            mlp_dim = 128, 
+            depth = 6,
+            heads = 8,
+            mlp_dim = 1024, 
             dim_head = 64
         )
         self.seqdown2 = Down(in_channels= 128, out_channels= 256)
 
         self.transformer3 = Transformer(
             dim = 256,
-            depth = 1,
-            heads = 4,
-            mlp_dim = 128, 
+            depth = 6,
+            heads = 8,
+            mlp_dim = 2048, 
             dim_head = 64
         ) 
         self.seqdown3 = Down(in_channels= 256, out_channels= 512)
