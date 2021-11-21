@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 from skimage import io, transform
 import torch
 import torchvision
@@ -19,7 +19,7 @@ from data_loader import ToTensor
 from data_loader import ToTensorLab
 from data_loader import SalObjDataset
 
-from model import TransUNet
+from model import TransUNet, Swin_TransUNet
 
 # normalize the predicted SOD probability map
 def normPRED(d):
@@ -54,8 +54,8 @@ def main():
 
     # --------- 1. get image path and name ---------
     image_dir = "../The cropped image tiles and raster labels/test/image/"
-    prediction_dir = "../WSU_results/transu/"
-    model_dir = "saved_models/TransUNet/TransUNet_bce_itr_495_train_0.088352.pth"
+    prediction_dir = "../WSU_results/swin_transu_500/"
+    model_dir = "saved_models/Swin_TransUNet/Swin_TransUNet_bce_itr_500_train_0.029015.pth"
     img_name_list = glob.glob(image_dir + os.sep + '*')
     print(img_name_list)
 
@@ -63,7 +63,7 @@ def main():
     #1. dataloader
     test_salobj_dataset = SalObjDataset(img_name_list = img_name_list,
                                         lbl_name_list = [],
-                                        transform=transforms.Compose([RescaleT(128),
+                                        transform=transforms.Compose([RescaleT(256),
                                                                       ToTensorLab(flag=0)])
                                         )
     test_salobj_dataloader = DataLoader(test_salobj_dataset,
@@ -73,7 +73,7 @@ def main():
 
     # --------- 3. model define ---------
 
-    net = TransUNet(3,1)
+    net = Swin_TransUNet(3,1)
     net = nn.DataParallel(net) # multi-GPU
     net.load_state_dict(torch.load(model_dir))
     if torch.cuda.is_available():

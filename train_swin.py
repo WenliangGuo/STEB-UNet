@@ -78,21 +78,17 @@ bce_loss = nn.BCELoss(size_average=True)
 
 model_name = 'Swin_TransUNet' 
 
-train_data = os.path.join(os.getcwd(), '../The cropped image tiles and raster labels/train_all' + os.sep)
+train_data = os.path.join(os.getcwd(), '../Massachusetts-dataset/train' + os.sep)
 tra_image_dir = os.path.join('image' + os.sep)
 tra_label_dir = os.path.join('label' + os.sep)
-
-valid_data = os.path.join(os.getcwd(), '../The cropped image tiles and raster labels/val' + os.sep)
-val_image_dir = os.path.join('image' + os.sep)
-val_label_dir = os.path.join('label' + os.sep)
 
 image_ext = '.png'
 label_ext = '.png'
 
-model_dir = os.path.join(os.getcwd(), 'saved_models', model_name + os.sep)
+model_dir = os.path.join(os.getcwd(), 'saved_models/Massachusetts-dataset', model_name + os.sep)
 
-epoch_num = 550
-batch_size_train = 16
+epoch_num = 20000
+batch_size_train = 44
 batch_size_val = 1
 train_num = 0
 val_num = 0
@@ -105,7 +101,6 @@ save_epoch = 5
 Loss_list = []
 
 tra_img_name_list = glob.glob(train_data + tra_image_dir + '*' + image_ext)
-val_img_name_list = glob.glob(valid_data + val_image_dir + '*' + image_ext)
 
 tra_lbl_name_list = []
 val_lbl_name_list = []
@@ -121,22 +116,10 @@ for img_path in tra_img_name_list:
 
 	tra_lbl_name_list.append(train_data + tra_label_dir + imidx + label_ext)
 
-for img_path in val_img_name_list:
-	img_name = img_path.split(os.sep)[-1]
-
-	aaa = img_name.split(".")
-	bbb = aaa[0:-1]
-	imidx = bbb[0]
-	for i in range(1,len(bbb)):
-		imidx = imidx + "." + bbb[i]
-
-	val_lbl_name_list.append(valid_data + val_label_dir + imidx + label_ext)
 
 print("---")
 print("train images: ", len(tra_img_name_list))
 print("train labels: ", len(tra_lbl_name_list))
-print("train images: ", len(val_img_name_list))
-print("train labels: ", len(val_lbl_name_list))
 print("---")
 
 train_num = len(tra_img_name_list)
@@ -149,14 +132,6 @@ train_dataset = SalObjDataset(
         RandomCrop(256),
         ToTensorLab(flag=0)]))
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size_train, shuffle=True, num_workers=1)
-
-valid_dataset = SalObjDataset(
-    img_name_list=val_img_name_list,
-    lbl_name_list=val_lbl_name_list,
-    transform=transforms.Compose([
-        RescaleT(256),
-        ToTensorLab(flag=0)]))
-valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size_val, shuffle=False, num_workers=1)
 
 # ------- 3. define model --------
 # define the net
@@ -230,31 +205,6 @@ for epoch in range(0, epoch_num):
 
 
     if (epoch+1) % save_epoch== 0:
-        # print("Validating ......")
-        # iou_sum = 0
-        # ite = 0
-
-        # for i_val, data_val in enumerate(valid_dataloader):
-        #     ite = ite + 1
-        #     inputs_val = data_val['image']
-        #     inputs_val = inputs_val.type(torch.FloatTensor)
-
-        #     if torch.cuda.is_available():
-        #         inputs_val = Variable(inputs_val.cuda())
-        #     else:
-        #         inputs_val = Variable(inputs_val)
-
-        #     d_val= net(inputs_val)
-
-        #     # normalization
-        #     pred = d_val[:,0,:,:]
-        #     pred = normPRED(pred)
-
-        #     #calculate iou and accumulate
-        #     iou_sum = iou_sum + cal_iou(inputs_val, pred)
-        #     del d_val
-        
-        # print("Mean iou: {}".format(iou_sum / ite))
         torch.save(net.state_dict(), model_dir + model_name+"_bce_itr_%d_train_%3f.pth" % (epoch+1, running_loss / ite_num4val))
         
 
@@ -269,4 +219,4 @@ for epoch in range(0, epoch_num):
     plt.plot(x, y, '.-')
     plt.xlabel('Test loss vs. ite_num')
     plt.ylabel('Test loss')
-    plt.savefig("loss/Swin_TransUNet_loss.png".format(str(epoch+1)))
+    plt.savefig("loss/Mass_Swin_TransUNet_loss.png".format(str(epoch+1)))
