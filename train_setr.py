@@ -1,3 +1,4 @@
+from SETR.transformer_seg import SETRModel
 import torch
 import torchvision
 from torch.autograd import Variable
@@ -21,8 +22,6 @@ from data_loader import ToTensor
 from data_loader import ToTensorLab
 from data_loader import SalObjDataset
 
-from model import TransUNet
-
 import matplotlib
 matplotlib.use('AGG')
 import matplotlib.pyplot as plt
@@ -36,19 +35,19 @@ bce_loss = nn.BCELoss(size_average=True)
 
 # ------- 2. set the directory of training dataset --------
 
-model_name = 'TransUNet' 
+model_name = 'SETR' 
 
-train_data = '../The cropped image tiles and raster labels/train_all/'
+train_data = '../Massachusetts-dataset/train/'
 tra_image_dir = os.path.join('image' + os.sep)
 tra_label_dir = os.path.join('label' + os.sep)
 
 image_ext = '.png'
 label_ext = '.png'
 
-model_dir = os.path.join(os.getcwd(), 'saved_models/WSU-dataset/', model_name + os.sep)
+model_dir = os.path.join(os.getcwd(), 'saved_models/Massachusetts-dataset/', model_name + os.sep)
 
-epoch_num = 300
-batch_size_train = 2
+epoch_num = 1000
+batch_size_train = 32
 batch_size_val = 1
 train_num = 0
 val_num = 0
@@ -86,14 +85,20 @@ train_dataset = SalObjDataset(
     img_name_list=tra_img_name_list,
     lbl_name_list=tra_lbl_name_list,
     transform=transforms.Compose([
-        RescaleT(160),
-        RandomCrop(128),
+        RescaleT(320),
+        RandomCrop(256),
         ToTensorLab(flag=0)]))
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size_train, shuffle=True, num_workers=1)
 
 # ------- 3. define model --------
 # define the net
-net = TransUNet(in_channels=3, out_channels = 1, bilinear=True)
+net = SETRModel(patch_size=(32, 32), 
+                    in_channels=3, 
+                    out_channels=1, 
+                    hidden_size=1024, 
+                    num_hidden_layers=6, 
+                    num_attention_heads=8, 
+                    decode_features=[512, 256, 128, 64])
 net = nn.DataParallel(net)
 
 if torch.cuda.is_available():
@@ -101,7 +106,7 @@ if torch.cuda.is_available():
 
 # ------- 4. define optimizer --------
 print("---define optimizer...")
-optimizer = optim.Adam(net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
+optimizer = optim.Adam(net.parameters(), lr=0.0001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
 
 model_list = os.listdir(model_dir)
 e_from = 0
@@ -150,6 +155,7 @@ for epoch in range(e_from, epoch_num):
 
         # forward + backward + optimize
         d= net(inputs_v)
+        #print(d)
         loss = bce_loss(d, labels_v)
 
         loss.backward()
@@ -181,4 +187,4 @@ for epoch in range(e_from, epoch_num):
     plt.plot(x, y, '.-')
     plt.xlabel('Test loss vs. ite_num')
     plt.ylabel('Test loss')
-    plt.savefig("loss/TransUNet.png".format(str(epoch+1)))
+    plt.savefig("loss/SETR.png".format(str(epoch+1)))

@@ -4,7 +4,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 import os
 import torch.nn.functional as F
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
@@ -78,17 +78,17 @@ bce_loss = nn.BCELoss(size_average=True)
 
 model_name = 'Swin_TransUNet' 
 
-train_data = os.path.join(os.getcwd(), '../Massachusetts-dataset/train' + os.sep)
+train_data = os.path.join(os.getcwd(), '../The cropped image tiles and raster labels/train_all' + os.sep)
 tra_image_dir = os.path.join('image' + os.sep)
 tra_label_dir = os.path.join('label' + os.sep)
 
 image_ext = '.png'
 label_ext = '.png'
 
-model_dir = os.path.join(os.getcwd(), 'saved_models/Massachusetts-dataset', model_name + os.sep)
+model_dir = os.path.join(os.getcwd(), 'saved_models/WSU-dataset', model_name + os.sep)
 
-epoch_num = 20000
-batch_size_train = 44
+epoch_num = 2000
+batch_size_train = 16
 batch_size_val = 1
 train_num = 0
 val_num = 0
@@ -136,8 +136,18 @@ train_dataloader = DataLoader(train_dataset, batch_size=batch_size_train, shuffl
 # ------- 3. define model --------
 # define the net
 net = Swin_TransUNet(in_channels=3, out_channels = 1)
+net = nn.DataParallel(net)
+
+if torch.cuda.is_available():
+    net.cuda()
+
+# ------- 4. define optimizer --------
+optimizer = optim.Adam(net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
+
+# ------- loading the latest model -------
 
 model_list = os.listdir(model_dir)
+e_from = 0
 
 if len(model_list) != 0: #load the latest model
     model_list.sort(key=lambda x:os.path.getmtime(os.path.join(model_dir,x)))
@@ -145,27 +155,20 @@ if len(model_list) != 0: #load the latest model
     print("Previous training is interrupted. Begin training from {}.".format(latest_file))
     # original saved file with DataParallel
     state_dict = torch.load(os.path.join(model_dir,latest_file))
-    # create new OrderedDict that does not contain `module.`
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        name = k[7:] # remove `module.`
-        new_state_dict[name] = v
+    # # create new OrderedDict that does not contain `module.`
+    # new_state_dict = OrderedDict()
+    # for k, v in state_dict.items():
+    #     name = k[7:] # remove `module.`
+    #     new_state_dict[name] = v
     # load params
-    net.load_state_dict(new_state_dict)
-
-net = nn.DataParallel(net)
-
-if torch.cuda.is_available():
-    net.cuda()
-
-# ------- 4. define optimizer --------
-print("---define optimizer...")
-optimizer = optim.Adam(net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
+    net.load_state_dict(state_dict['state_dict'])
+    optimizer.load_state_dict(state_dict['optimizer'])
+    e_from = state_dict['epoch']
 
 # ------- 5. training process --------
 print("---start training...")
 
-for epoch in range(0, epoch_num):
+for epoch in range(0 + e_from, epoch_num):
     net.train()
 
     for i, data in enumerate(train_dataloader):
@@ -205,8 +208,8 @@ for epoch in range(0, epoch_num):
 
 
     if (epoch+1) % save_epoch== 0:
-        torch.save(net.state_dict(), model_dir + model_name+"_bce_itr_%d_train_%3f.pth" % (epoch+1, running_loss / ite_num4val))
-        
+        torch.save({'epoch': epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict()}, 
+                    model_dir + model_name+"_bce_itr_%d_train_%3f.pth" % (epoch+1, running_loss / ite_num4val))
 
     Loss_list.append(running_loss / ite_num4val)
     running_loss = 0.0
