@@ -1,11 +1,12 @@
-from SETR.transformer_seg import SETRModel
+#from SETR.transformer_seg import SETRModel
+from setr.SETR import SETR_Naive
 import torch
 import torchvision
 from torch.autograd import Variable
 import torch.nn as nn
 import os
 import torch.nn.functional as F
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
@@ -28,6 +29,7 @@ import matplotlib.pyplot as plt
 
 import eval
 from collections import OrderedDict
+import time
 
 # ------- 1. define loss function --------
 
@@ -47,7 +49,7 @@ label_ext = '.png'
 model_dir = os.path.join(os.getcwd(), 'saved_models/Massachusetts-dataset/', model_name + os.sep)
 
 epoch_num = 1000
-batch_size_train = 32
+batch_size_train = 1
 batch_size_val = 1
 train_num = 0
 val_num = 0
@@ -85,20 +87,33 @@ train_dataset = SalObjDataset(
     img_name_list=tra_img_name_list,
     lbl_name_list=tra_lbl_name_list,
     transform=transforms.Compose([
-        RescaleT(320),
-        RandomCrop(256),
+        RescaleT(160),
+        RandomCrop(128),
         ToTensorLab(flag=0)]))
 train_dataloader = DataLoader(train_dataset, batch_size=batch_size_train, shuffle=True, num_workers=1)
 
 # ------- 3. define model --------
 # define the net
-net = SETRModel(patch_size=(32, 32), 
-                    in_channels=3, 
-                    out_channels=1, 
-                    hidden_size=1024, 
-                    num_hidden_layers=6, 
-                    num_attention_heads=8, 
-                    decode_features=[512, 256, 128, 64])
+# net = SETRModel(patch_size=(32,32), 
+#                     in_channels=3, 
+#                     out_channels=1, 
+#                     hidden_size=1024, 
+#                     num_hidden_layers=6, 
+#                     num_attention_heads=8, 
+#                     decode_features=[512, 256, 128, 64])
+
+net = SETR_Naive(
+    img_dim = 128,
+    patch_dim = 2,
+    num_channels = 3,
+    num_classes = 1,
+    embedding_dim = 64,
+    num_heads = 8,
+    num_layers = 18,
+    hidden_dim = 1024,
+    dropout_rate=0.1,
+    attn_dropout_rate=0.0
+    )
 net = nn.DataParallel(net)
 
 if torch.cuda.is_available():
@@ -111,27 +126,28 @@ optimizer = optim.Adam(net.parameters(), lr=0.0001, betas=(0.9, 0.999), eps=1e-0
 model_list = os.listdir(model_dir)
 e_from = 0
 
-if len(model_list) != 0: #load the latest model
-    model_list.sort(key=lambda x:os.path.getmtime(os.path.join(model_dir,x)))
-    latest_file = model_list[-1]
-    print("Previous training is interrupted. Begin training from {}.".format(latest_file))
-    # original saved file with DataParallel
-    # state_dict = torch.load(os.path.join(model_dir,latest_file))
-    # # create new OrderedDict that does not contain `module.`
-    # new_state_dict = OrderedDict()
-    # for k, v in state_dict.items():
-    #     name = k[7:] # remove `module.`
-    #     new_state_dict[name] = v
-    # load params
-    state_dict = torch.load(os.path.join(model_dir,latest_file))
-    net.load_state_dict(state_dict['state_dict'])
-    optimizer.load_state_dict(state_dict['optimizer'])
-    e_from = state_dict['epoch'] + 1
+# if len(model_list) != 0: #load the latest model
+#     model_list.sort(key=lambda x:os.path.getmtime(os.path.join(model_dir,x)))
+#     latest_file = model_list[-1]
+#     print("Previous training is interrupted. Begin training from {}.".format(latest_file))
+#     # original saved file with DataParallel
+#     # state_dict = torch.load(os.path.join(model_dir,latest_file))
+#     # # create new OrderedDict that does not contain `module.`
+#     # new_state_dict = OrderedDict()
+#     # for k, v in state_dict.items():
+#     #     name = k[7:] # remove `module.`
+#     #     new_state_dict[name] = v
+#     # load params
+#     state_dict = torch.load(os.path.join(model_dir,latest_file))
+#     net.load_state_dict(state_dict['state_dict'])
+#     optimizer.load_state_dict(state_dict['optimizer'])
+#     e_from = state_dict['epoch'] + 1
 
 # ------- 5. training process --------
 print("---start training...")
 
 for epoch in range(e_from, epoch_num):
+    since = time.time()
     net.train()
 
     for i, data in enumerate(train_dataloader):
@@ -157,7 +173,7 @@ for epoch in range(e_from, epoch_num):
         d= net(inputs_v)
         #print(d)
         loss = bce_loss(d, labels_v)
-
+        
         loss.backward()
         optimizer.step()
 
@@ -170,6 +186,8 @@ for epoch in range(e_from, epoch_num):
         print("[epoch: %3d/%3d, batch: %5d/%5d, ite: %d] train loss: %3f" % (
         epoch + 1, epoch_num, (i + 1) * batch_size_train, train_num, ite_num, running_loss / ite_num4val))
 
+    time_elapsed = time.time() - since
+    print('Training complete in {}s'.format(time_elapsed))
 
     if (epoch+1) % save_epoch== 0:
         torch.save({'epoch': epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict()}, 

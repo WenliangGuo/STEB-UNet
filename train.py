@@ -4,7 +4,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 import os
 import torch.nn.functional as F
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
@@ -29,6 +29,8 @@ import matplotlib.pyplot as plt
 
 import eval
 from collections import OrderedDict
+import dice_loss
+import time
 
 # ------- 1. define loss function --------
 
@@ -36,7 +38,7 @@ bce_loss = nn.BCELoss(size_average=True)
 
 # ------- 2. set the directory of training dataset --------
 
-model_name = 'TransUNet' 
+model_name = 'TransUNet_dice' 
 
 train_data = '../The cropped image tiles and raster labels/train_all/'
 tra_image_dir = os.path.join('image' + os.sep)
@@ -48,7 +50,7 @@ label_ext = '.png'
 model_dir = os.path.join(os.getcwd(), 'saved_models/WSU-dataset/', model_name + os.sep)
 
 epoch_num = 300
-batch_size_train = 2
+batch_size_train = 1
 batch_size_val = 1
 train_num = 0
 val_num = 0
@@ -103,6 +105,9 @@ if torch.cuda.is_available():
 print("---define optimizer...")
 optimizer = optim.Adam(net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
 
+# ------- loading the latest model -------
+if not os.path.exists(model_dir):
+    os.makedirs(model_dir)
 model_list = os.listdir(model_dir)
 e_from = 0
 
@@ -127,6 +132,7 @@ if len(model_list) != 0: #load the latest model
 print("---start training...")
 
 for epoch in range(e_from, epoch_num):
+    since = time.time()
     net.train()
 
     for i, data in enumerate(train_dataloader):
@@ -151,7 +157,7 @@ for epoch in range(e_from, epoch_num):
         # forward + backward + optimize
         d= net(inputs_v)
         loss = bce_loss(d, labels_v)
-
+        #loss = dice_loss.dice_coeff(d, labels_v)
         loss.backward()
         optimizer.step()
 
@@ -164,6 +170,8 @@ for epoch in range(e_from, epoch_num):
         print("[epoch: %3d/%3d, batch: %5d/%5d, ite: %d] train loss: %3f" % (
         epoch + 1, epoch_num, (i + 1) * batch_size_train, train_num, ite_num, running_loss / ite_num4val))
 
+    time_elapsed = time.time() - since
+    print('Training complete in {}s'.format(time_elapsed))
 
     if (epoch+1) % save_epoch== 0:
         torch.save({'epoch': epoch + 1, 'state_dict': net.state_dict(), 'optimizer': optimizer.state_dict()}, 
@@ -181,4 +189,4 @@ for epoch in range(e_from, epoch_num):
     plt.plot(x, y, '.-')
     plt.xlabel('Test loss vs. ite_num')
     plt.ylabel('Test loss')
-    plt.savefig("loss/TransUNet.png".format(str(epoch+1)))
+    plt.savefig("loss/WHU_TransUNet_dice.png".format(str(epoch+1)))

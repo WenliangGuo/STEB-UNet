@@ -7,6 +7,20 @@ import math
 from .transunet_parts import *
 from .segvit import Encoder, Transformer
 from .swin_transformer import BasicLayer
+from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+
+def position_embedding(x, embed_dim, patch_size, drop):
+    H, W = x.size(2), x.size(3)
+    img_size = to_2tuple([H, W])
+    patch_size = to_2tuple(patch_size)
+    patches_resolution = [img_size[0] // patch_size[0], img_size[1] // patch_size[1]]
+
+    absolute_pos_embed = nn.Parameter(torch.zeros(1, embed_dim, patches_resolution[0], patches_resolution[1]))
+    trunc_normal_(absolute_pos_embed, std=.02)
+    absolute_pos_embed = F.interpolate(absolute_pos_embed, size=(H, W), mode='bicubic').cuda()
+    x = (x + absolute_pos_embed).flatten(2).transpose(1, 2)  # B Wh*Ww C
+    Drop = nn.Dropout(drop)
+    return Drop(x)
 
 class Swin_TransUNet(nn.Module):
     def __init__(self, in_channels, out_channels, patch_size=2,embed_dim=64, window_size=7,mlp_ratio=4.,
@@ -20,6 +34,9 @@ class Swin_TransUNet(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.bilinear = bilinear
+        self.embed_dim = embed_dim
+        self.patch_size = [patch_size, patch_size]
+        self.drop = drop_rate
 
         self.patch_embed = PatchEmbed(
             patch_size=patch_size, in_chans=in_channels, embed_dim=embed_dim,
@@ -94,15 +111,15 @@ class Swin_TransUNet(nn.Module):
         self.up3 = Up(256, 128 // factor, bilinear)
         self.up4 = Up(128, 64, bilinear)
         self.outc = OutConv(64, out_channels)
-    
+
     def forward(self, x):
         B, C, H, W = x.shape 
 
         trans_in = self.patch_embed(x) # 64 128 128
 
-        trans_in_vec = trans_in.permute(0,2,3,1).view(B, int(H/2*W/2), 64)   #128*128 64
+        trans_in = position_embedding(trans_in, self.embed_dim, self.patch_size, self.drop)
 
-        trans1_vec = self.transformer1(trans_in_vec, int(H/2), int(W/2))     #128*128 64
+        trans1_vec = self.transformer1(trans_in, int(H/2), int(W/2))     #128*128 64
  
         trans1 = trans1_vec.permute(0,2,1).view(B, 64, int(H/2), int(W/2))   #64 128 128
         
