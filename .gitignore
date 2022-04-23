@@ -3,6 +3,9 @@ setr/
 SETR/
 script/
 saved_models/
+model/transunet_model.py
+model/__pycache__/
+model/.ipynb_checkpoints/
 paranum.py
 train_setr.py
 train_swin.py

@@ -21,7 +21,7 @@ from data_loader import ToTensor
 from data_loader import ToTensorLab
 from data_loader import SalObjDataset
 
-from model import TransUNet
+from model import STEB_UNet
 
 import matplotlib
 matplotlib.use('AGG')
@@ -95,8 +95,8 @@ train_dataloader = DataLoader(train_dataset, batch_size=batch_size_train, shuffl
 
 # ------- 3. define model --------
 # define the net
-net = TransUNet(in_channels=3, out_channels = 1, bilinear=True)
-net = nn.DataParallel(net)
+net = STEB_UNet(in_channels=3, out_channels = 1)
+net = nn.DataParallel(net) # multi-GPU
 
 if torch.cuda.is_available():
     net.cuda()
@@ -115,14 +115,6 @@ if len(model_list) != 0: #load the latest model
     model_list.sort(key=lambda x:os.path.getmtime(os.path.join(model_dir,x)))
     latest_file = model_list[-1]
     print("Previous training is interrupted. Begin training from {}.".format(latest_file))
-    # original saved file with DataParallel
-    # state_dict = torch.load(os.path.join(model_dir,latest_file))
-    # # create new OrderedDict that does not contain `module.`
-    # new_state_dict = OrderedDict()
-    # for k, v in state_dict.items():
-    #     name = k[7:] # remove `module.`
-    #     new_state_dict[name] = v
-    # load params
     state_dict = torch.load(os.path.join(model_dir,latest_file))
     net.load_state_dict(state_dict['state_dict'])
     optimizer.load_state_dict(state_dict['optimizer'])
@@ -184,9 +176,9 @@ for epoch in range(e_from, epoch_num):
     net.train()  # resume train
     ite_num4val = 0
         
-    x = range(0, len(Loss_list))
-    y = Loss_list
-    plt.plot(x, y, '.-')
-    plt.xlabel('Test loss vs. ite_num')
-    plt.ylabel('Test loss')
-    plt.savefig("loss/WHU_TransUNet_dice.png".format(str(epoch+1)))
+    # x = range(0, len(Loss_list))
+    # y = Loss_list
+    # plt.plot(x, y, '.-')
+    # plt.xlabel('Test loss vs. ite_num')
+    # plt.ylabel('Test loss')
+    # plt.savefig("loss/WHU_TransUNet_dice.png".format(str(epoch+1)))

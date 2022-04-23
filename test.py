@@ -9,7 +9,6 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms#, utils
 # import torch.optim as optim
-from SETR.transformer_seg import SETRModel
 from collections import OrderedDict
 import numpy as np
 from PIL import Image
@@ -22,7 +21,7 @@ from data_loader import ToTensor
 from data_loader import ToTensorLab
 from data_loader import SalObjDataset
 
-from model import TransUNet, Swin_TransUNet
+from model import STEB_UNet
 import copy
 import cv2 as cv
 import time
@@ -74,7 +73,6 @@ def main():
     prediction_dir = "../results/simple_test/WHU/swin_transu_bce/"
     model_dir = "/home/xiaoxiao/gwl/TransUNet/saved_models/WHU-dataset/Swin_TransUNet_bce/Swin_TransUNet_bce_itr_1780_train_0.047400206327438354.pth"
     img_name_list = glob.glob(image_dir + os.sep + '*')
-    print("测试集图像数量：", len(img_name_list))
 
     # --------- 2. dataloader ---------
     #1. dataloader
@@ -89,25 +87,9 @@ def main():
                                         num_workers=1)
 
     # --------- 3. model define ---------
-
-    # net = SETRModel(patch_size=(32, 32), 
-    #                 in_channels=3, 
-    #                 out_channels=1, 
-    #                 hidden_size=1024, 
-    #                 num_hidden_layers=6, 
-    #                 num_attention_heads=8, 
-    #                 decode_features=[512, 256, 128, 64])
     
-    net = Swin_TransUNet(in_channels=3, out_channels = 1)
+    net = STEB_UNet(in_channels=3, out_channels = 1)
     net = nn.DataParallel(net) # multi-GPU
-
-    # state_dict = torch.load(model_dir)
-    # # create new OrderedDict that does not contain `module.`
-    # checkpoint = OrderedDict()
-    # for k, v in state_dict['state_dict'].items():
-    #     name = k[7:] # remove `module.`
-    #     checkpoint[name] = v
-    # net.load_state_dict(checkpoint)
 
     checkpoint = torch.load(model_dir)
     net.load_state_dict(checkpoint['state_dict'])
@@ -122,7 +104,7 @@ def main():
     with torch.no_grad():
         for i_test, data_test in enumerate(test_salobj_dataloader):
 
-            print("inferencing:",img_name_list[i_test].split(os.sep)[-1])
+            #print("inferencing:",img_name_list[i_test].split(os.sep)[-1])
 
             inputs_test = data_test['image']
             inputs_test = inputs_test.type(torch.FloatTensor)
@@ -149,6 +131,6 @@ def main():
             #save_output(img_name_list[i_test], pred, prediction_dir, blend= True)
 
             del d,pred,
-    print(tot_time)
+    #print(tot_time)
 if __name__ == "__main__":
     main()

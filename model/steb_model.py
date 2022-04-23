@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch
 from mmcv_custom import load_checkpoint
 import math
-from .transunet_parts import *
+from .unet_parts import *
 from .segvit import Encoder, Transformer
 from .swin_transformer import BasicLayer
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
@@ -22,7 +22,7 @@ def position_embedding(x, embed_dim, patch_size, drop):
     Drop = nn.Dropout(drop)
     return Drop(x)
 
-class Swin_TransUNet(nn.Module):
+class STEB_UNet(nn.Module):
     def __init__(self, in_channels, out_channels, patch_size=2,embed_dim=64, window_size=7,mlp_ratio=4.,
                  qkv_bias=True,qk_scale=None,
                  drop_rate=0.,
@@ -30,7 +30,7 @@ class Swin_TransUNet(nn.Module):
                  drop_path_rate=0.2,
                  norm_layer=nn.LayerNorm,bilinear=True):
 
-        super(Swin_TransUNet, self).__init__()
+        super(STEB_UNet, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.bilinear = bilinear
