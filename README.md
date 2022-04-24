@@ -7,7 +7,7 @@ Building extraction is a popular topic in remote sensing image processing. Effic
 ## Architecture 
 <div align="center">
 <img
-src = "figures/STEB-UNet.png" style="zoom:60%;"/>
+src = "figures/STEB-UNet.png" style="zoom:50%;"/>
 </div>
 
 ## Demo
