@@ -32,13 +32,13 @@ src = "figures/transfer.png"/>
 </div>
 
 ## Citation
-@article{xiao2022swin,
-  title={A Swin Transformer-Based Encoding Booster Integrated in U-Shaped Network for Building Extraction},
-  author={Xiao, Xiao and Guo, Wenliang and Chen, Rui and Hui, Yilong and Wang, Jianing and Zhao, Hongyu},
-  journal={Remote Sensing},
-  volume={14},
-  number={11},
-  pages={2611},
-  year={2022},
-  publisher={Multidisciplinary Digital Publishing Institute}
+@article{xiao2022swin,  
+  title={A Swin Transformer-Based Encoding Booster Integrated in U-Shaped Network for Building Extraction},  
+  author={Xiao, Xiao and Guo, Wenliang and Chen, Rui and Hui, Yilong and Wang, Jianing and Zhao, Hongyu},  
+  journal={Remote Sensing},  
+  volume={14},  
+  number={11},  
+  pages={2611},  
+  year={2022},  
+  publisher={Multidisciplinary Digital Publishing Institute}  
 }
